@@ -1,0 +1,105 @@
+services:
+  dextrading_nestjs:
+    container_name: dextrading_nestjs
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - '${APP_PORT}:${APP_PORT}'
+    networks:
+      - dextrading_intranet
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=dextrading_mysql
+      - REDIS_HOST=dextrading_redis
+    depends_on:
+      dextrading_mysql:
+        condition: service_healthy
+      dextrading_redis:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/uploads
+    healthcheck:
+      test: [ 'CMD', 'curl', '-f', 'http://localhost:${APP_PORT}' ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: node dist/main.js
+
+  dextrading_mysql:
+    container_name: dextrading_mysql
+    restart: always
+    image: mysql:8.0.29
+    env_file: .env
+    volumes:
+      - mysql:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - '3307:${DB_PORT}'
+    networks:
+      - dextrading_intranet
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      TZ: 'utc'
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'mysqladmin',
+          '-u${DB_USER}',
+          '-p${DB_PASSWORD}',
+          'ping'
+        ]
+      interval: 10s
+      retries: 5
+      timeout: 10s
+      start_period: 15s
+
+  dextrading_redis:
+    container_name: dextrading_redis
+    image: redis:alpine
+    restart: unless-stopped
+    volumes:
+      - redis:/data
+    ports:
+      - 6380:${REDIS_PORT}
+    networks:
+      - dextrading_intranet
+    healthcheck:
+      test: [ 'CMD', 'redis-cli', 'ping' ]
+      interval: 5s
+      retries: 3
+      timeout: 3s
+
+  dextrading_mysql_backup:
+    container_name: dextrading_mysql_backup
+    image: databack/mysql-backup
+    env_file: .env
+    environment:
+      DB_SERVER: dextrading_mysql
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASSWORD}
+      BACKUP_DIR: '/backups'
+    networks:
+      - dextrading_intranet
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      - dextrading_mysql
+
+volumes:
+  mysql:
+    name: dextrading_mysql
+  redis:
+    name: dextrading_redis
+
+networks:
+  dextrading_intranet:
+    name: dextrading_intranet
+    driver: bridge
