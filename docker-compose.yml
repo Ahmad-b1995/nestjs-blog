@@ -1,6 +1,6 @@
 services:
-  dextrading_nestjs:
-    container_name: dextrading_nestjs
+  blog_nestjs:
+    container_name: blog_nestjs
     restart: unless-stopped
     build:
       context: .
@@ -9,16 +9,16 @@ services:
     ports:
       - '${APP_PORT}:${APP_PORT}'
     networks:
-      - dextrading_intranet
+      - blog_intranet
     env_file:
       - .env
     environment:
-      - DB_HOST=dextrading_mysql
-      - REDIS_HOST=dextrading_redis
+      - DB_HOST=blog_mysql
+      - REDIS_HOST=blog_redis
     depends_on:
-      dextrading_mysql:
+      blog_mysql:
         condition: service_healthy
-      dextrading_redis:
+      blog_redis:
         condition: service_healthy
     volumes:
       - ./uploads:/uploads
@@ -29,8 +29,8 @@ services:
       retries: 3
     command: node dist/main.js
 
-  dextrading_mysql:
-    container_name: dextrading_mysql
+  blog_mysql:
+    container_name: blog_mysql
     restart: always
     image: mysql:8.0.29
     env_file: .env
@@ -40,7 +40,7 @@ services:
     ports:
       - '3307:${DB_PORT}'
     networks:
-      - dextrading_intranet
+      - blog_intranet
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
@@ -60,8 +60,8 @@ services:
       timeout: 10s
       start_period: 15s
 
-  dextrading_redis:
-    container_name: dextrading_redis
+  blog_redis:
+    container_name: blog_redis
     image: redis:alpine
     restart: unless-stopped
     volumes:
@@ -69,37 +69,37 @@ services:
     ports:
       - 6380:${REDIS_PORT}
     networks:
-      - dextrading_intranet
+      - blog_intranet
     healthcheck:
       test: [ 'CMD', 'redis-cli', 'ping' ]
       interval: 5s
       retries: 3
       timeout: 3s
 
-  dextrading_mysql_backup:
-    container_name: dextrading_mysql_backup
+  blog_mysql_backup:
+    container_name: blog_mysql_backup
     image: databack/mysql-backup
     env_file: .env
     environment:
-      DB_SERVER: dextrading_mysql
+      DB_SERVER: blog_mysql
       DB_PORT: ${DB_PORT}
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASSWORD}
       BACKUP_DIR: '/backups'
     networks:
-      - dextrading_intranet
+      - blog_intranet
     volumes:
       - ./backups:/backups
     depends_on:
-      - dextrading_mysql
+      - blog_mysql
 
 volumes:
   mysql:
-    name: dextrading_mysql
+    name: blog_mysql
   redis:
-    name: dextrading_redis
+    name: blog_redis
 
 networks:
-  dextrading_intranet:
-    name: dextrading_intranet
+  blog_intranet:
+    name: blog_intranet
     driver: bridge
